@@ -1,0 +1,65 @@
+---
+title: "Contributing a Policy Pack for a New Stack"
+sidebarTitle: "Policy Packs"
+description: "Add a ready-made AGENT_POLICY.md for a stack that isn't covered yet. Policy packs are the easiest and most impactful contribution to Keel Skills."
+---
+
+A policy pack is a ready-made `AGENT_POLICY.md` for a stack that isn't covered yet — Django, Rails, a mobile app, a monorepo, a data pipeline, or anything else not already listed under `policies/`. Policy packs are one of the easiest and most useful contributions to Keel Skills: they let new users get started immediately without configuring from scratch, because a concrete baseline they can trim is more valuable than a blank file they have to research.
+
+## What makes a good pack
+
+A good policy pack satisfies all four of these criteria:
+
+1. **Lists concrete hot zones** — real paths and real actions for that stack, not vague categories. `migrations/**` and `git push` beat "database stuff" and "deployments".
+2. **Names the source-of-truth files** typical of that stack — the files other work depends on (e.g., schema files, lock files, environment configs).
+3. **Says where decisions and state are usually recorded** — a decisions log, a project-state file, or per-task notes appropriate to that stack.
+4. **Stays short** — a pack someone has to trim is better than one they have to research. Aim for a file that takes a minute to scan, not a page to read.
+
+## How to contribute a pack
+
+<Steps>
+  <Step title="Copy an existing pack as a starting point">
+    Choose a pack from `policies/` that is closest to your target stack. The `supabase/` and `nextjs-vercel/` packs are good references because they demonstrate concrete hot zones and source-of-truth files for real, well-known stacks.
+  </Step>
+  <Step title="Make every hot zone concrete">
+    Replace any vague category with a real path or real action for your stack. `src/app/**`, `migrations/**`, and `git push` are concrete. "Database changes" and "deployments" are not — a conforming implementation ignores vague hot zones.
+  </Step>
+  <Step title="Place it under policies/<your-stack>/AGENT_POLICY.md">
+    Create the directory named after your stack and place the finished file at `policies/<your-stack>/AGENT_POLICY.md`.
+  </Step>
+  <Step title="List it in policies/README.md">
+    Add a row to the table in `policies/README.md` with the pack name and a one-line description of when to use it.
+  </Step>
+  <Step title="Open a PR">
+    Open a pull request. Keep it focused on one stack per PR so it's easy to review.
+  </Step>
+</Steps>
+
+## Pack structure reminder
+
+A policy pack should provide all six `AGENT_POLICY.md` sections. Here is what each section should contain for a stack-specific pack:
+
+| Section | What to put in it for a pack |
+|---------|------------------------------|
+| **§1 Hot zones** | Concrete paths (`src/app/**`, `migrations/**`) and commands (`git push`, `vercel deploy`) specific to that stack |
+| **§2 Source-of-truth files** | The files that other work depends on — typical for that stack (e.g., schema files, lock files, env configs) |
+| **§3 Where decisions are recorded** | Typical paths for decisions logs, project-state files, or per-task notes for that stack |
+| **§4 Model tier overrides** | Only if the stack has unusual needs; omit the section if the defaults are fine |
+| **§5 Definitions** | What "reversible", "internal", and "release" mean in the context of this stack |
+| **§6 Standing approvals** | Common pre-approved commands for that stack (e.g., `npm run build`, `npm test`) — each must state its scope explicitly |
+
+## Stacks we'd most like to see
+
+Any stack not already listed in `policies/` is a good candidate. Stacks specifically called out in `CONTRIBUTING.md` as high-value targets include:
+
+- **Django** — migrations, settings, `manage.py` commands, deployment
+- **Rails** — migrations, routes, Bundler, Capistrano or Heroku deploys
+- **Mobile apps** — app store submissions, signing configs, over-the-air update pipelines
+- **Monorepos** — workspace-level tooling, cross-package publish workflows
+- **Data pipelines** — DAG definitions, connection configs, scheduled-run triggers
+
+If your stack isn't on this list, that just means no one has written the pack yet — open a PR.
+
+<Tip>
+  You don't need to build the perfect policy pack. A starting point that someone can trim and adjust is more valuable than waiting for a perfect one.
+</Tip>

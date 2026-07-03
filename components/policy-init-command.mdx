@@ -1,0 +1,64 @@
+---
+title: "/keel-skills:policy-init: Scaffold Your AGENT_POLICY.md"
+sidebarTitle: "policy-init"
+description: "The /keel-skills:policy-init command interviews you about your project's hot zones and generates a tailored AGENT_POLICY.md at your project root."
+---
+
+`/keel-skills:policy-init` is a Claude Code slash command that scaffolds a project-specific `AGENT_POLICY.md` by interviewing you about your hot zones, source-of-truth files, and model-tier overrides. This is what keeps the Keel Skills framework generic — the skills and hooks ship with sensible defaults, but all project-specific data lives in the file this command generates. Run it once per project to give the agent the context it needs to make good decisions for that codebase.
+
+## Running the command
+
+```text
+/keel-skills:policy-init
+```
+
+Run this in each project where you want Keel to know the specifics. If an `AGENT_POLICY.md` already exists at the project root, the command reads it and offers to review or extend it rather than overwriting it.
+
+## What the command does
+
+<Steps>
+  <Step title="Check for an existing policy">
+    The command checks whether an `AGENT_POLICY.md` already exists at the project root. If it does, the command reads it and shifts into review/extend mode instead of starting fresh.
+  </Step>
+  <Step title="Read the policy template">
+    The command reads `AGENT_POLICY.template.md` from the plugin's templates directory to recall the full structure it should produce.
+  </Step>
+  <Step title="Briefly explore the project">
+    Before asking you anything, the command takes a quick look at the project: top-level layout, build and deploy configuration, and any existing decision docs. It uses what it can infer from the repo to make better suggestions and to avoid asking about things it can already see.
+  </Step>
+  <Step title="Ask for what it cannot infer">
+    The command asks concisely for the parts it genuinely cannot determine from the repo:
+    - Which surfaces are client- or external-facing?
+    - What counts as production, data, or infra for this project?
+    - Which outward or irreversible actions matter here (push, deploy, send, charge)?
+    - Where does the source of truth live, and where should decisions and state be recorded?
+    - Any model-tier overrides or project-specific definitions you want to lock in?
+  </Step>
+  <Step title="Write the AGENT_POLICY.md">
+    The command writes a filled-in `AGENT_POLICY.md` at the project root. It aims to be short and concrete — every hot zone is a real path or a real action, not a vague category.
+  </Step>
+  <Step title="Confirm before treating as authoritative">
+    The command shows you the result and waits for confirmation before treating the file as the live policy. This is the moment to correct anything the exploration got wrong or that your answers didn't capture precisely.
+  </Step>
+</Steps>
+
+## The generated file's structure
+
+The `AGENT_POLICY.md` produced by the command follows the structure defined in the [Keel specification](/configuration/agent-policy). It has six sections:
+
+| # | Section | Required | Purpose |
+|---|---------|----------|---------|
+| 1 | Hot zones | Yes | Concrete paths, surfaces, and actions that need a green light before the agent acts |
+| 2 | Source-of-truth files | Yes | Files where only following-through on an existing decision runs without a new green light |
+| 3 | Where state and decisions get recorded | Yes | Decisions log path, project-state file path, per-task notes convention |
+| 4 | Model tier overrides | No | Project-specific overrides of the default model delegation tiers |
+| 5 | Definitions for this project | No | Pin down what "undoable," "internal," "release," etc. mean in this codebase |
+| 6 | Standing approvals | No | Written decisions that grant a green light in advance for a defined scope — each must state that scope explicitly |
+
+The file also supports an optional `keel-policy` fenced block (inside the same file) for the machine-readable policy data that the `PreToolUse` enforcement hook reads directly. See [Hooks](/components/hooks) for the block format.
+
+<Note>
+Creating AGENT_POLICY.md is a low-impact, reversible action. But the content defines what the agent will treat as hot, so the command always shows you the result and asks for confirmation before treating it as authoritative.
+</Note>
+
+For the full `AGENT_POLICY.md` reference — including how the machine-readable block works and how standing approvals carry over to following-through — see [AGENT_POLICY.md Reference](/configuration/agent-policy).

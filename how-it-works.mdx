@@ -1,0 +1,100 @@
+---
+title: "How Keel Skills Works: Architecture Overview"
+sidebarTitle: "How It Works"
+description: "Two complementary layers: skills that guide the agent's reasoning and a deterministic PreToolUse hook that enforces policy regardless of model decisions."
+---
+
+Keel Skills operates in two complementary layers. The **soft layer** — three skills — makes the agent apply the four-step check before any action that writes or changes something. The **hard layer** — the `PreToolUse` hook backed by your `AGENT_POLICY.md` — intercepts every tool call deterministically before it runs and blocks hot ones for explicit approval, regardless of what the model decided. Together they cover the two failure modes: an agent that reasons carelessly, and a headless or CI agent where no human is present to give a green light.
+
+## The two layers
+
+The soft and hard layers address different failure modes and have complementary strengths and weaknesses. Running both is what makes the framework reliable across interactive and non-interactive contexts.
+
+**Soft layer (skills / reasoning):** The three skills make the agent internalize the four-step check and apply it as part of its own reasoning process. Because the agent is reasoning with full context — knowing the project, the instruction, and the situation — the soft layer handles nuance well. Its weakness is that it depends on the model choosing to comply.
+
+**Hard layer (enforcement hook):** The `PreToolUse` hook (`enforce-policy.cjs`) is deterministic code that runs before every tool call. It reads the hot zones from your `AGENT_POLICY.md` (plus the SPEC §4 defaults) and maps each tool call to `allow`, `ask`, or `deny`. It doesn't reason — it pattern-matches — and it fires unconditionally.
+
+| Layer | What it is | Strength | Weakness | Covers headless? |
+|---|---|---|---|---|
+| **Soft** | Three skills that prompt the agent to run the four-step check before acting | Context-aware; handles nuance and project-specific circumstances | Depends on the model choosing to comply | No — relies on model reasoning |
+| **Hard** | `PreToolUse` hook that intercepts tool calls before they run | Deterministic; fires unconditionally before every matched tool call | Pattern-matches commands and paths; a sophisticated adversarial agent can route around it | Yes — `ask` verdicts are auto-escalated to `deny` in CI |
+
+## Session lifecycle
+
+<Steps>
+  <Step title="Session starts — policy injected">
+    When a Claude Code session opens, the `SessionStart` hook fires and runs `inject-policy.cjs`. If an `AGENT_POLICY.md` exists at the project root, its full contents are injected into the session context. The policy is now present in the model's context window without the agent having to choose to read it.
+  </Step>
+  <Step title="Agent receives a task — four-step check runs">
+    When the agent receives an instruction, the `authorization-protocol` skill prompts it to run the four-step check before acting. The agent classifies the instruction as a goal, a method, or a green light, and determines whether the action is free or needs a green light. If it needs one and no standing approval covers the scope, the agent stops and asks.
+  </Step>
+  <Step title="Agent attempts a tool call — PreToolUse hook intercepts">
+    Before any tool call executes, the `PreToolUse` hook fires and inspects it against the hot defaults from SPEC §4 plus any `hot_paths` and `hot_commands` defined in your `AGENT_POLICY.md` machine-readable block. The hook returns one of three verdicts:
+
+    - **`allow`** — the call is not hot, or is covered by a standing approval; execution continues.
+    - **`ask`** — the call is hot and lacks a green light; the hook surfaces an explicit human-approval prompt before execution.
+    - **`deny`** — the call is hot, lacks a green light, and no human is available to approve (headless/CI mode); execution is blocked.
+  </Step>
+  <Step title="Decision logged to audit trail">
+    Every verdict — allow, ask, or deny — is appended as a JSON line to `.keel/audit.jsonl` in your project root. Each record includes the timestamp, the tool called, the rule that matched, and the verdict. The audit trail is append-only and written by the hook itself.
+  </Step>
+</Steps>
+
+## The three skills
+
+Each skill is a Markdown document that Claude Code loads as part of the agent's context. They are generic — none of your project's specifics are embedded in them.
+
+<CardGroup cols={3}>
+  <Card title="Authorization Protocol" icon="shield-check" href="/components/authorization-protocol">
+    The core governance skill. Defines the goal / method / green light distinction, the four-step check, hot-zone defaults, and the rule for following through on a green light you already have.
+  </Card>
+  <Card title="Model Delegation" icon="sitemap" href="/components/model-delegation">
+    Cost and risk control for subagents. Enforces tier-by-task assignment, a maximum nesting depth of two, no self-escalation, and a cheapest-first tool ladder. Subagents can never grant a green light.
+  </Card>
+  <Card title="Context Discipline" icon="files" href="/components/context-discipline">
+    Session hygiene. Defines when to end a long session, what to record so decisions aren't lost, and how to leave a resumable handoff that doesn't depend on reconstructing context from chat.
+  </Card>
+</CardGroup>
+
+## The AGENT_POLICY.md
+
+The key architectural decision in Keel Skills is the separation of **mechanism** from **your data**. The skills describe the pattern — what a risky zone is, what a green light means, how to choose a model. Your `AGENT_POLICY.md` holds all the specifics:
+
+- Which paths in your project are hot (e.g., `src/migrations/**`, `public/**`)
+- Which commands are hot for your stack (e.g., `vercel deploy`, `supabase db push`)
+- Where your decisions log and project-state file live
+- Any standing approvals already in place (e.g., "the agent may run `npm run build` without a new green light")
+
+Because the `SessionStart` hook injects `AGENT_POLICY.md` automatically, the policy is always present — it doesn't depend on the agent choosing to read it or remembering it from a previous session. The same plugin installation works across all your projects; each project's `AGENT_POLICY.md` configures it for that project's specifics.
+
+The optional machine-readable block inside `AGENT_POLICY.md` gives the `PreToolUse` hook a parseable subset it can act on deterministically:
+
+```keel-policy
+hot_paths:
+  - "src/**"
+hot_commands:
+  - "git push"
+standing_allow_commands:
+  - "npm run build"
+standing_allow_paths:
+  - "_drafts/**"
+```
+
+This block refines the SPEC §4 defaults — it does not replace them. Any category not listed still falls under the four-step check.
+
+## Headless / CI mode
+
+When no human is present to give a green light, any `ask` verdict would block indefinitely. Keel handles this explicitly: in headless or CI contexts, `ask` is automatically escalated to `deny`.
+
+The hook detects non-interactive mode from two environment variables:
+
+```bash
+KEEL_NONINTERACTIVE=1   # explicit opt-in for non-interactive runs
+CI=true                 # standard CI environment variable
+```
+
+When either is set and the hook returns an `ask` verdict — meaning the action is hot and lacks a standing approval — it is upgraded to `deny` and the tool call is blocked. This ensures that a CI pipeline running the agent cannot silently take an action that would require human approval in an interactive session.
+
+<Warning>
+  The enforcement hook is not a security sandbox. It catches accidents, drift, and hallucinated actions. A jailbroken or adversarial agent can evade shell command matching. Use scoped credentials and real sandboxing for adversarial isolation.
+</Warning>

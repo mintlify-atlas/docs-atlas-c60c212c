@@ -1,0 +1,91 @@
+---
+title: "Hot Zones: Actions That Always Need a Green Light"
+sidebarTitle: "Hot Zones"
+description: "Hot zones are where mistakes are expensive or hard to undo. Learn the five default categories, per-project configuration, and the default hot commands."
+---
+
+A hot zone is any path, surface, or action where a mistake is expensive or hard to undo. The [four-step check](/concepts/permission-model#the-four-step-check) stops the agent at step 2 the moment a hot zone is touched — no matter how small the individual action looks. Hot zones are not a nuisance; they are where the real risk lives. A conforming implementation must treat every default category as hot unless the project's policy concretely refines it.
+
+## Default hot zone categories
+
+These five categories are hot by default in every Keel-compatible implementation. A project may refine the specifics, but may not remove a category wholesale.
+
+<CardGroup cols={1}>
+  <Card title="Anything users or the public see" icon="eye">
+    Published copy, marketing pages, public APIs, and anything in the user-visible UI. A mistake here is already out.
+  </Card>
+  <Card title="Production, databases, schema, settings, hooks, CI/CD" icon="database">
+    Anything that runs in or shapes the live system — schema changes, environment settings, webhook configurations, and pipeline definitions all qualify.
+  </Card>
+  <Card title="Actions that reach outside or can't be undone" icon="arrow-up-right-from-square">
+    Commit, push, deploy, send an email or message, publish, charge money, delete data. These cross a boundary or write a permanent fact into the world.
+  </Card>
+  <Card title="Turning a draft into a decision" icon="stamp">
+    Marking something `[APPROVED]` or `[CONFIRMED]` is itself a risky action. The act of promotion — not just the content — needs a green light.
+  </Card>
+  <Card title="Source-of-truth files" icon="file-lines">
+    Files other work depends on. New decisions, meaning-changing edits, or other substantive changes to these need a green light. The one exception is [following through](/concepts/following-through) on a decision that was already approved.
+  </Card>
+</CardGroup>
+
+<Warning>
+  In a repository the agent does not know well, a file's reach is risky until the agent understands how far it goes. Treat unknown reach as hot.
+</Warning>
+
+## Configuring hot zones per project
+
+The defaults above are intentionally broad. Every project has its own specific paths and actions that matter most. Those go in **`AGENT_POLICY.md` §1** at the project root.
+
+Two rules apply when writing your hot zones:
+
+- **Hot zones must be concrete.** A real path or a real action — not a category name. `src/app/**` is concrete. "frontend files" is not and will be ignored.
+- **A project may refine the specifics but must not remove a category wholesale.** You can narrow "anything users see" to `content/marketing/**`; you cannot declare that nothing the public sees is hot.
+
+The `policy-init` command generates a starter `AGENT_POLICY.md` by interviewing you about your project's specific hot paths and actions. See the [agent policy configuration](/configuration/agent-policy) reference for the full format.
+
+## Machine-readable hot zones
+
+The prose sections of `AGENT_POLICY.md` are written for an LLM to reason with. The `PreToolUse` enforcement hook needs something it can parse deterministically. That lives in a single fenced `keel-policy` block inside the same file — one file, two audiences.
+
+```keel-policy
+hot_paths:
+  - "src/**"
+hot_commands:
+  - "git push"
+  - "vercel deploy"
+```
+
+- `hot_paths` — glob patterns. Any `Write`, `Edit`, or `MultiEdit` tool call whose target path matches is stopped for a green light.
+- `hot_commands` — substring patterns. Any `Bash` command that contains one of these strings is stopped for a green light.
+
+These entries **refine** the §4 defaults; they do not replace them. Anything not in the block still falls under the four-step check, and the §4 defaults remain in effect regardless.
+
+See [the machine-readable block reference](/configuration/machine-readable-block) for the full format including `standing_allow_commands` and `standing_allow_paths`.
+
+## Default hot commands
+
+The following command substrings are hardcoded into the enforcement hook as `DEFAULT_HOT_COMMANDS`. They are always enforced — even when no `AGENT_POLICY.md` is present and no machine-readable block exists:
+
+| Command substring | Why it's hot |
+|---|---|
+| `git push` | Outward, can overwrite remote history |
+| `git commit` | Outward per SPEC §4; suppressible via `standing_allow_commands` |
+| `git reset --hard` | Destroys local history, can't be undone via the usual path |
+| `rm -rf` | Deletes data without recovery |
+| `rm -fr` | Same as above, alternate flag order |
+| `drop table` | Destroys database table |
+| `drop database` | Destroys entire database |
+| `truncate` | Empties a table |
+| `vercel deploy` | Deploys to production |
+| `vercel --prod` | Deploys to production (flag form) |
+| `supabase db push` | Applies schema migration to a live database |
+| `migrate` | Schema migration (any migration runner) |
+| `npm publish` | Publishes a package to the public registry |
+
+## Default hot MCP tools
+
+For MCP tool calls, the hook checks tool names against `DEFAULT_HOT_MCP` — a list of substrings that indicate outward or irreversible operations by nature:
+
+`deploy`, `execute_sql`, `apply_migration`, `create_post`, `delete`, `send`, `publish`, `merge_branch`, `create_short_link`, `charge`
+
+Any MCP tool whose name contains one of these substrings is stopped for a green light by default.

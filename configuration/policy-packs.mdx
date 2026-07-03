@@ -1,0 +1,214 @@
+---
+title: "Policy Packs: Ready-Made AGENT_POLICY.md Templates"
+sidebarTitle: "Policy Packs"
+description: "Policy packs are ready-made AGENT_POLICY.md starting points for common stacks. Copy the closest one and adjust — hot zones must be real paths or actions."
+---
+
+Policy packs are ready-made `AGENT_POLICY.md` files for common technology stacks. Copy the one closest to your project to your repo root as `AGENT_POLICY.md`, then trim and adjust. They are starting points, not finished policies — every hot zone should be a real path or real action in your specific project, not a generic placeholder.
+
+## Available packs
+
+<CardGroup cols={3}>
+  <Card title="web-app-deploy" icon="globe">
+    Any web app with a build + deploy and a client-facing surface. The generic baseline pack — use it when no stack-specific pack fits.
+  </Card>
+  <Card title="nextjs-vercel" icon="triangle">
+    Next.js, Astro, or SvelteKit apps deployed on Vercel or a similar PaaS. Covers routes, middleware, config files, and preview-to-production promotion.
+  </Card>
+  <Card title="supabase" icon="database">
+    Backed by Supabase / Postgres with migrations, RLS, and edge functions. Treats the database as the sharpest hot zone with extra-explicit guidance.
+  </Card>
+</CardGroup>
+
+## web-app-deploy pack
+
+The `web-app-deploy` pack is the generic baseline for any web project that has a build pipeline, a deploy step, and a surface that users see. All angle-bracket values are placeholders — replace them with your real paths before committing the file.
+
+```markdown
+# AGENT_POLICY.md — generic web app with deploy
+
+> Baseline pack for any web app that has a build, a deploy, and a client-facing
+> surface. Copy to your repo root as `AGENT_POLICY.md` and replace the angle-bracket
+> paths with your real ones. Delete what doesn't apply. Keep it short and concrete.
+
+## 1. Hot zones (need a green light before any change)
+
+- **Client/external-facing surfaces:**
+  - `<src/ or app/ — anything rendered to users>`
+  - `<content/, copy, marketing pages>`
+  - `<public API routes>`
+- **Production / data / infra:**
+  - `<environment variables / secrets>`
+  - `<build & deploy config (CI workflow files, deploy config)>`
+  - `<any database or migration>`
+- **Outward / irreversible actions:**
+  - `git push`, deploy / publish, sending email, charging money, deleting data
+- **Promoting a draft to a decision** — marking anything `[APPROVED]` / `[CONFIRMED]`.
+
+Everything not listed is hot **only** when the four-step check says so; under doubt, ask.
+
+## 2. Source-of-truth files
+
+Files other work depends on — new decisions or meaning-changing edits need a green
+light; only following through (no judgment needed, scope stated, points back to its
+source, still current) runs without a new green light.
+
+- `<the canonical spec / master copy doc>`
+- `<the decisions log (below)>`
+
+## 3. Where state and decisions get recorded
+
+- **Decisions log:** `<docs/decisions.md>`
+- **Project state / status file:** `<STATUS.md or equivalent>`
+- **Per-task notes:** `<convention, e.g. a per-task file or PR description>`
+
+## 4. Model tier overrides (optional)
+
+Defaults from the `model-delegation` skill apply unless overridden here.
+
+- Mechanical work → cheapest tier
+- Research / synthesis → mid tier
+- Planning / architecture / cross-cutting → top tier
+
+## 5. Definitions for this project (optional)
+
+- "Reversible" here means: revertible via version control with no external effect.
+- "Internal" here means: never reaches a deployed/published surface.
+- A "release" here means: `<a deploy to production / a published build>`.
+
+## 6. Standing approvals (optional)
+
+- `[APPROVED <date>]` `<action + exact scope it covers>`
+```
+
+## nextjs-vercel pack
+
+The `nextjs-vercel` pack covers Next.js, Astro, and SvelteKit projects deployed on Vercel or a similar PaaS. It lists concrete hot paths for each framework's route and config conventions, and calls out `middleware.ts` explicitly because it runs on every request.
+
+```markdown
+# AGENT_POLICY.md — Next.js / Astro / SvelteKit on Vercel
+
+> Pack for a JS/TS web app deployed on Vercel (or similar PaaS). Copy to your repo
+> root as `AGENT_POLICY.md` and adjust paths. Delete what doesn't apply.
+
+## 1. Hot zones (need a green light before any change)
+
+- **Client/external-facing surfaces:**
+  - `src/app/**`, `src/pages/**`, `app/**`, `pages/**` — rendered routes
+  - `src/components/**` that ship to users
+  - `content/**`, `lib/content.*` — published copy
+  - `public/**` — assets served as-is
+  - `src/app/api/**`, `app/api/**` — public API routes
+- **Production / data / infra:**
+  - `.env*`, environment variables, Vercel project settings
+  - `next.config.*`, `astro.config.*`, `svelte.config.*`, `vercel.json`
+  - `.github/workflows/**`, any CI/CD config
+  - `middleware.ts` — runs on every request
+- **Outward / irreversible actions:**
+  - `git push`, `vercel deploy` / `vercel --prod`, promoting a preview to production
+  - sending email, charging money, deleting data
+- **Promoting a draft to a decision** — `[APPROVED]` / `[CONFIRMED]`.
+
+Everything not listed is hot **only** when the four-step check says so; under doubt, ask.
+
+## 2. Source-of-truth files
+
+- `lib/content.*` or wherever canonical copy lives
+- the decisions log (below)
+- `package.json` dependencies/scripts (meaning-changing edits → green light)
+
+## 3. Where state and decisions get recorded
+
+- **Decisions log:** `<docs/decisions.md>`
+- **Project state / status file:** `<STATUS.md>`
+- **Per-task notes:** `<PR description or a per-task note>`
+
+## 4. Model tier overrides (optional)
+
+- Mechanical (rename, move files, format) → cheapest tier
+- Component/code exploration, copy drafting → mid tier
+- Architecture, routing/data-flow changes, cross-cutting refactors → top tier
+
+## 5. Definitions for this project (optional)
+
+- "Reversible" here means: revertible via git with no deploy/publish side effect.
+- "Internal" here means: stays in a preview/branch, never promoted to production.
+- A "release" here means: a production deploy on Vercel.
+
+## 6. Standing approvals (optional)
+
+- `[APPROVED <date>]` `<e.g. "agent may run the local dev server and tests freely">`
+```
+
+## supabase pack
+
+The `supabase` pack is for projects backed by Supabase or Postgres with migrations, Row Level Security policies, and edge functions. It treats the database as the sharpest hot zone and calls out RLS explicitly — a wrong policy leaks or locks data.
+
+```markdown
+# AGENT_POLICY.md — Supabase / Postgres backend
+
+> Pack for a project backed by Supabase (Postgres + Auth + RLS + edge functions).
+> Copy to your repo root as `AGENT_POLICY.md` and adjust paths. The database is the
+> sharpest hot zone here — treat schema and RLS with extra care.
+
+## 1. Hot zones (need a green light before any change)
+
+- **Production / data / infra (sharpest here):**
+  - `supabase/migrations/**` — schema changes
+  - **Row Level Security (RLS) policies** — a wrong policy leaks or locks data
+  - `supabase/functions/**` — edge functions
+  - `supabase/config.toml`, project settings, secrets, service-role keys
+  - **Any direct SQL** that writes, alters schema, or changes grants/policies
+  - Running migrations against a **remote/production** project
+- **Client/external-facing surfaces:**
+  - the app code that reads/writes user data
+  - public API routes / RPC exposed to clients
+- **Outward / irreversible actions:**
+  - `git push`, deploy, `supabase db push`, applying a migration remotely,
+    deleting rows/tables, rotating keys, sending email, charging money
+- **Promoting a draft to a decision** — `[APPROVED]` / `[CONFIRMED]`.
+
+Everything not listed is hot **only** when the four-step check says so; under doubt, ask.
+**Prefer local/branch databases and test before touching a remote project.**
+
+## 2. Source-of-truth artifacts
+
+- `supabase/migrations/**` — the schema's history; never rewrite, only add
+- generated DB types (`*.types.ts`) — regenerate, don't hand-edit interpretively
+- the decisions log (below)
+
+## 3. Where state and decisions get recorded
+
+- **Decisions log:** `<docs/decisions.md>`
+- **Project state / status file:** `<STATUS.md>`
+- **Per-task notes:** `<convention>`
+
+## 4. Model tier overrides (optional)
+
+- Mechanical (list tables, inventory columns, regenerate types) → cheapest tier
+- Query writing, diagnosis from logs/advisors → mid tier
+- Schema design, RLS design, data-model or migration strategy → top tier
+
+## 5. Definitions for this project (optional)
+
+- "Reversible" here means: a local/branch DB change with a down-migration; a
+  remote schema change is **not** reversible for this policy's purposes.
+- "Internal" here means: local stack or a Supabase branch, never the production project.
+- A "release" here means: a migration applied to the production project.
+
+## 6. Standing approvals (optional)
+
+- `[APPROVED <date>]` `<e.g. "agent may run read-only queries and list_* tools against the linked project">`
+```
+
+## When to use policy-init instead
+
+If none of the packs fit your project well, run [`/keel-skills:policy-init`](/components/policy-init-command) instead. The command interviews you about your repo — stack, hot surfaces, where decisions are recorded — and generates a policy tailored to your specific project. It is the better choice when your stack is unusual or when your hot zones don't map cleanly to any of the packs above.
+
+## Contributing a pack
+
+Adding a pack for a stack that isn't covered here is one of the easiest and most useful contributions to the project. A good pack lists concrete hot zones (real paths, real actions) for that stack, names the typical source-of-truth files, and stays short enough to trim rather than research. See the [contributing guide](/contributing/policy-packs) for details.
+
+<Note>
+  A pack you have to trim beats one you have to research. Keep hot zones concrete — a real path or real action for that stack.
+</Note>

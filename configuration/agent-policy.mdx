@@ -1,0 +1,182 @@
+---
+title: "AGENT_POLICY.md: Per-Project Configuration Reference"
+sidebarTitle: "AGENT_POLICY.md"
+description: "AGENT_POLICY.md tells Keel Skills what is hot in your project — which paths are hot, where source of truth lives, and what approvals stand."
+---
+
+`AGENT_POLICY.md` is the configuration file at the root of your project that tells a Keel Skills implementation what is specific to your project — which paths and actions are hot, where the source of truth lives, and what approvals already stand. The skills ship generic; this file is where all your project's details live. Keep it short and concrete.
+
+## Creating your policy
+
+There are two ways to create your `AGENT_POLICY.md`:
+
+<Steps>
+  <Step title="Generate it with /keel-skills:policy-init">
+    Run `/keel-skills:policy-init` inside your project. The command interviews you about your stack, surfaces, and hot zones, then writes a tailored file. See the [policy-init command reference](/components/policy-init-command) for the full question set and options.
+  </Step>
+  <Step title="Copy a policy pack and trim to fit">
+    Browse the [policy packs](/configuration/policy-packs) and copy the one closest to your stack to your repo root as `AGENT_POLICY.md`. Then replace every angle-bracket placeholder with a real path or real action, and delete the sections that don't apply.
+  </Step>
+</Steps>
+
+## The six sections
+
+`AGENT_POLICY.md` has six sections. The first three are required; the rest are optional but recommended.
+
+| # | Section | Required | Purpose |
+|---|---------|----------|---------|
+| 1 | Hot zones | Yes | Concrete paths, surfaces, and actions that need a green light |
+| 2 | Source-of-truth files | Yes | Files that need a green light for meaning-changing edits |
+| 3 | Where state and decisions get recorded | Yes | Decisions log, project-state file, per-task notes |
+| 4 | Model tier overrides | No | Project-specific model assignment overrides |
+| 5 | Definitions for this project | No | Pin down undoable, internal, release |
+| 6 | Standing approvals | No | Pre-approved actions with explicit scope |
+
+## Section 1 — Hot zones
+
+Hot zones are the paths, surfaces, and actions where a mistake is expensive or hard to undo. The agent needs a clear yes — a green light — before touching anything listed here. The template groups them into four sub-categories:
+
+- **Client/external-facing surfaces** — anything rendered or served to users: routes, components, published copy, public assets, public API routes.
+- **Production / data / infra** — databases, schema and migrations, environment variables and secrets, CI/CD config, deploy configuration, hooks.
+- **Outward / irreversible actions** — `git push`, deploy commands, sending email, charging money, deleting data.
+- **Anything else this project treats as hot** — add project-specific entries that don't fit the above.
+
+<Warning>
+  Hot zones must be **concrete** — a real path (`src/pages/**`) or a real action (`vercel deploy`). Vague hot zones get ignored by both the reasoning layer and the enforcement hook.
+</Warning>
+
+Everything not listed in §1 is treated as potentially hot only when the four-step check says so. When in doubt, the agent stops and asks for a green light.
+
+## Section 2 — Source-of-truth files
+
+Source-of-truth files are files that other work depends on. A new decision or any meaning-changing edit to one of these files needs a green light.
+
+The one exception is *following through* on an already-approved decision — that runs without a new green light only when all four conditions hold:
+
+1. No judgment needed — two people applying the same decision produce the same change.
+2. The decision states the scope — it is not being guessed.
+3. The change points back to the source decision.
+4. The decision is still current — nothing later has overridden it.
+
+Miss any one of those four → needs a new green light.
+
+## Section 3 — Where state is recorded
+
+Section 3 tells the context-discipline skill exactly where to write decisions and status — so it records them in the right place instead of guessing. Three fields:
+
+- **Decisions log** — path to the file where decisions are recorded (e.g. `docs/decisions.md`).
+- **Project state / status file** — path to the current-state file (e.g. `STATUS.md`).
+- **Per-task notes** — the convention for per-task notes (e.g. a per-task file, a PR description).
+
+## Section 4 — Model tier overrides
+
+Section 4 is optional. The `model-delegation` skill ships with defaults (cheapest tier for mechanical work, mid tier for research and synthesis, top tier for planning and architecture). Add entries here only if you have a project-specific reason to override them.
+
+## Section 5 — Definitions for this project
+
+Section 5 is optional. Pin down any term the agent might have to guess otherwise — "reversible", "internal", "release". Clear definitions let the agent apply the four-step check accurately without asking about every edge case.
+
+## Section 6 — Standing approvals
+
+Standing approvals are pre-approved actions — written decisions in the policy file that give a green light in advance for a defined scope. They are the human-readable form of the `standing_allow_commands` and `standing_allow_paths` fields in the machine-readable block.
+
+Each entry uses the format `[APPROVED <date>] <action + exact scope>`. The scope must be explicit — an entry that does not state its scope is not a valid green light, and the agent must not guess it.
+
+```markdown
+## 6. Standing approvals
+
+- [APPROVED 2026-06-01] agent may run `npm run build` and `npm test` freely on the local branch
+```
+
+<Tip>
+  Date your standing approvals. It makes it obvious when an entry might be stale and needs re-confirmation.
+</Tip>
+
+## The machine-readable block
+
+`AGENT_POLICY.md` can contain an optional fenced ` ```keel-policy ` block. The prose sections of the file are written for an LLM to reason with; the `PreToolUse` enforcement hook is deterministic code that needs a concrete, parseable subset. The block provides that subset — in the same file, so the project keeps one source of truth.
+
+See the [machine-readable block reference](/configuration/machine-readable-block) for the full format, all four fields, and how the block interacts with the SPEC §4 defaults.
+
+## Template
+
+The canonical template below shows all six sections with their placeholders. Copy it to your project root as `AGENT_POLICY.md` and fill in the angle-bracket values for your project.
+
+```markdown
+# AGENT_POLICY.md — project configuration for the Keel Skills framework
+
+## 1. Hot zones (need a clear yes — a green light — before any change)
+
+- **Client/external-facing surfaces:**
+  - `<e.g. src/pages, content/, public API routes>`
+- **Production / data / infra:**
+  - `<e.g. database, schema/migrations, settings, CI/CD, deploy config, hooks>`
+- **Outward / irreversible actions:**
+  - `<e.g. git push, deploy, sending email, charging, deleting data>`
+- **Anything else this project treats as hot:**
+  - `<...>`
+
+Everything not listed here is treated as potentially hot **only** when the
+four-step check says so; when in doubt, the agent stops and asks for a green light.
+
+## 2. Source-of-truth files
+
+Files that other work depends on. New decisions or meaning-changing edits to these
+need a green light; only *following through* on an already-approved decision (no
+judgment needed, scope stated by the decision, points back to its source, decision
+still current) runs without a new green light.
+
+- `<e.g. docs/decisions.md, the canonical spec, the master copy doc>`
+
+## 3. Where state and decisions get recorded
+
+When a session reaches a decision or a new verified state, write it here:
+
+- **Decisions log:** `<path>`
+- **Project state / status file:** `<path>`
+- **Per-task notes:** `<path or convention>`
+
+## 4. Model tier overrides (optional)
+
+Keep the defaults from the `model-delegation` skill unless you have a reason.
+Note any project-specific overrides here.
+
+- Mechanical work → `<default: cheapest tier>`
+- Research / synthesis → `<default: mid tier>`
+- Planning / architecture / cross-cutting → `<default: top tier>`
+- Overrides: `<...>`
+
+## 5. Definitions for this project (optional)
+
+Pin down anything ambiguous so the agent doesn't have to guess:
+
+- "Reversible" here means: `<...>`
+- "Internal" here means: `<...>`
+- A "release" here means: `<...>`
+
+## 6. Standing approvals (optional)
+
+Written decisions that give a green light in advance for a defined scope. Each entry
+must state its scope explicitly so the agent never has to guess it.
+
+- `[APPROVED <date>]` `<action + exact scope it covers>`
+
+## 7. Machine-readable block (optional — powers the enforcement hook)
+
+```keel-policy
+hot_paths:
+  - "src/**"
+  - "supabase/migrations/**"
+hot_commands:
+  - "git push"
+  - "vercel deploy"
+standing_allow_commands:
+  - "npm run build"
+standing_allow_paths:
+  - "_drafts/**"
+` `` `
+```
+
+<Note>
+  The template comment at the top of the real file contains a bilingual note (English and Spanish). The sections are identical in both languages — the format does not change.
+</Note>

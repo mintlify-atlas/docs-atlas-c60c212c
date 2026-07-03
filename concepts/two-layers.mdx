@@ -1,0 +1,62 @@
+---
+title: "Two Layers: Soft Reasoning and Hard Enforcement"
+sidebarTitle: "Two Layers"
+description: "Keel combines an LLM reasoning layer with a deterministic enforcement hook for defense in depth. Learn how the two layers complement each other."
+---
+
+Keel works in two layers simultaneously, and you want both. The soft layer — three skills — makes the agent apply the [four-step check](/concepts/permission-model#the-four-step-check) itself before acting. The hard layer — a deterministic `PreToolUse` hook — intercepts every tool call before it runs and blocks hot actions regardless of what the model decided. Neither layer alone is sufficient. Together they provide defense in depth: the skill reasons, the hook backstops.
+
+## Soft layer — skills (reasoning)
+
+The `authorization-protocol` skill is the primary reasoning layer. It teaches the agent the [Goal / Method / Green Light permission model](/concepts/permission-model), the four-step check, the hot zone defaults, and the following-through conditions. When the skill is active, the agent applies this check itself before any write action.
+
+**Strengths:** The reasoning layer is context-aware. It can recognize that a chain of individually small steps amounts to rebuilding a system (step 3 of the four-step check). It can explain its reasoning to the human. It catches nuanced situations — a vague "go fix it" that is actually a goal, not a green light; a method named by the human that isn't approval; a following-through judgment that doesn't quite hold because the scope was never stated.
+
+**Weakness:** The soft layer depends entirely on the model choosing to comply. A model that hallucinates, drifts, or is manipulated into bypassing the check will not be stopped by the skill alone.
+
+## Hard layer — enforcement hook
+
+The `PreToolUse` hook (`enforce-policy.cjs`) is deterministic code that intercepts every tool call before it runs. It does not reason — it pattern-matches. It checks the tool name and input against the hot commands, hot paths, and MCP tool substrings defined in SPEC §4 and in the project's `keel-policy` block, then emits one of three verdicts:
+
+- **`allow`** — the call is free to proceed.
+- **`ask`** — the call matches a hot pattern and needs an explicit human approval prompt before proceeding. This is the request for a green light.
+- **`deny`** — the call is blocked outright. This is the verdict in non-interactive contexts where no human is present to give a green light.
+
+The hook fires regardless of what the model decided. If the model reasoned its way to "this is safe," and the hook disagrees, the hook wins.
+
+**Strength:** It fires regardless of the model's choice. It handles headless and CI contexts by denying hot actions when no human is present to respond to an `ask`.
+
+**Weakness:** It can only catch concrete, pattern-matchable cases. It cannot detect semantic intent or chain effects.
+
+## Why you need both
+
+| | Soft layer (skills) | Hard layer (hook) |
+|---|---|---|
+| **What it is** | Agent applies the four-step check itself | Deterministic code intercepts tool calls |
+| **Strength** | Context-aware, smart, explains its reasoning | Fires regardless of the model's choice |
+| **Weakness** | Depends on the model complying | Only catches concrete, pattern-matchable cases |
+| **Covers headless?** | No — assumes a human is available to ask | Yes — denies when no human is present |
+
+The reasoning layer covers the cases the hook cannot see: nuanced chains, vague instructions that look like permission, following-through judgments that don't hold. The hook covers the cases the reasoning layer might miss: a model that didn't apply the check, a hallucinated action, an instruction that drifted past the policy. You need both directions.
+
+## The enforcement hook is a backstop, not a sandbox
+
+The hook raises assurance substantially against accident, drift, and hallucinated actions. It should be understood honestly for what it is and what it is not.
+
+Shell command matching can be routed around. An agent (or a jailbroken agent) that constructs a command indirectly — for example, `g=push; git $g` — will not be caught by substring matching on `git push`. The hook catches the straightforward cases, which are also the overwhelmingly common cases: a model that simply tries to run a hot command without stopping to check.
+
+Real isolation — scoped credentials, a proper sandbox — is complementary and is not replaced by Keel. The enforcement hook raises the floor; it is not the wall.
+
+## Audit trail
+
+Every enforcement decision is appended to `.keel/audit.jsonl` in the project root. After a session you can answer "what did the agent try, and what did we stop?" precisely.
+
+```json
+{"ts":"2026-06-30T18:56:08.520Z","tool":"Write","input":"src/app/page.tsx","verdict":"ask","rule":"hot_path:src/**"}
+{"ts":"2026-06-30T18:56:08.795Z","tool":"Bash","input":"npm run build","verdict":"allow","rule":"standing_allow:npm run build"}
+{"ts":"2026-06-30T18:56:09.110Z","tool":"Bash","input":"git push --force origin main","verdict":"deny","rule":"hot_command:git push"}
+```
+
+Each entry records the timestamp, the tool name, the input that was inspected, the verdict emitted, and the rule that produced it. The `rule` field traces every decision back to either a hot pattern, a standing allow, or a built-in default — making the audit trail actionable rather than opaque.
+
+For the hook API reference see [hooks](/components/hooks). For a full worked example of the hard brake intercepting a push in both interactive and CI mode, see [enforcement hook example](/examples/enforcement-hook).

@@ -1,0 +1,123 @@
+---
+title: "The keel-policy Block: Machine-Readable Policy for Enforcement"
+sidebarTitle: "Machine-Readable Block"
+description: "The keel-policy fenced block in AGENT_POLICY.md lets the PreToolUse enforcement hook parse hot paths and commands without any dependencies."
+---
+
+The prose sections of `AGENT_POLICY.md` are written for an LLM to reason with. The `PreToolUse` enforcement hook is deterministic code and needs a concrete, parseable subset. That subset lives in an optional fenced ` ```keel-policy ` block inside the same `AGENT_POLICY.md`, so the project keeps one file — one source of truth for both the reasoning layer and the enforcement layer.
+
+## Format
+
+Place the block anywhere inside `AGENT_POLICY.md` — conventionally at the end, after the six prose sections. The parser expects flat YAML-style lists only; no nesting is supported by design, to keep the parser dependency-free.
+
+````markdown
+```keel-policy
+hot_paths:
+  - "src/**"
+  - "supabase/migrations/**"
+hot_commands:
+  - "git push"
+  - "vercel deploy"
+standing_allow_commands:
+  - "npm run build"
+  - "npm test"
+standing_allow_paths:
+  - "_drafts/**"
+```
+````
+
+<Note>
+  Flat lists only — no nesting. The parser is intentionally dependency-free and does not process nested YAML structures.
+</Note>
+
+## The four fields
+
+### `hot_paths`
+
+Glob patterns for file paths that are hot. The enforcement hook checks every file-write tool call — Write, Edit, MultiEdit, NotebookEdit — against these patterns before allowing it to proceed.
+
+Glob semantics: `**` matches any characters including `/`; `*` matches any characters except `/`. Patterns are matched against the full path relative to the repo root.
+
+```yaml
+hot_paths:
+  - "src/**"
+  - "supabase/migrations/**"
+  - ".env*"
+  - ".github/workflows/**"
+```
+
+### `hot_commands`
+
+Substring patterns for hot Bash commands. The hook checks every Bash tool call against these patterns — case-insensitively, after collapsing internal whitespace — and flags a match as requiring a green light.
+
+```yaml
+hot_commands:
+  - "git push"
+  - "vercel deploy"
+  - "npm publish"
+  - "supabase db push"
+```
+
+### `standing_allow_commands`
+
+Substring patterns for commands that are pre-approved. The hook checks these **before** checking `hot_commands` — a command that matches a standing allow passes through without asking for a green light. These are the machine-readable form of the §6 standing approvals in the prose section.
+
+```yaml
+standing_allow_commands:
+  - "npm run build"
+  - "npm test"
+```
+
+### `standing_allow_paths`
+
+Glob patterns for file paths that are pre-approved for writes. The hook checks these **before** checking `hot_paths` — a write to a path that matches a standing allow passes through. Use this for scratch directories, draft folders, or generated output that should never need approval.
+
+```yaml
+standing_allow_paths:
+  - "_drafts/**"
+  - "tmp/**"
+```
+
+## How it interacts with SPEC §4 defaults
+
+The block **refines** the §4 defaults — it does not replace them and must not be read as removing a default category. The enforcement hook always applies the hardcoded §4 defaults regardless of what the block contains or whether the block is present at all.
+
+The hardcoded defaults include (but are not limited to):
+
+- `git push`, `git commit`, `git reset --hard`
+- `rm -rf`, `rm -fr`
+- `DROP TABLE`, `DROP DATABASE`, `TRUNCATE`
+- `vercel deploy`, `vercel --prod`
+- `supabase db push`
+- migrate commands
+- `npm publish`
+
+Any `hot_paths` or `hot_commands` entries in the block **add** to this list for your project. Any `standing_allow_commands` or `standing_allow_paths` entries carve out explicit pre-approved exceptions.
+
+<Warning>
+  You cannot use the block to remove a §4 default category. If `git push` is in the §4 defaults, it remains hot even if it does not appear in your `hot_commands`. The block only adds project-specific entries and standing exceptions.
+</Warning>
+
+## The block is optional
+
+Its absence means the enforcement hook runs on the §4 defaults alone. The reasoning layer — the skills and the LLM — is unaffected either way. Omitting the block is a valid configuration; it simply means the hook has no project-specific refinements to apply.
+
+Add the block when you want the enforcement hook to catch project-specific hot paths or commands that are not covered by the §4 defaults, or when you want to register standing approvals that let certain commands through without prompting in every session.
+
+## Headless mode and the block
+
+In headless environments — `KEEL_NONINTERACTIVE=1` or a `CI` environment variable set — any action that would normally generate an `ask` verdict (a human-approval prompt) is automatically **denied** instead, because no human is present to give a green light.
+
+The `standing_allow_commands` and `standing_allow_paths` fields affect this behavior directly: an entry in either list causes the hook to return `allow` rather than `ask`, so the command or write goes through even in headless mode. This is the correct way to permit a CI pipeline to run tests or build commands without being blocked.
+
+```yaml
+# These pass through in CI without prompting
+standing_allow_commands:
+  - "npm run build"
+  - "npm test"
+  - "npm run lint"
+```
+
+<Note>
+  Keep `hot_paths` and `hot_commands` in sync with the prose §1 hot zones in `AGENT_POLICY.md`. The prose is what the agent reasons with; this block is what the hook enforces. They should tell the same story.
+</Note>

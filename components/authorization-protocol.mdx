@@ -1,0 +1,96 @@
+---
+title: "authorization-protocol: The Agent Permission Skill"
+sidebarTitle: "Authorization Protocol"
+description: "The authorization-protocol skill makes agents run a four-step check before every write action, distinguishing goals and methods from actual green lights."
+---
+
+The `authorization-protocol` skill is the soft reasoning layer of Keel Skills. It triggers automatically whenever the agent faces a task that could involve writing, editing, committing, pushing, deploying, or reconfiguring — and whenever a request is a vague "do whatever is needed," "fix this," "handle it," or "make it better" with no specific scope. Its job is to answer one question before anything else: should I act alone, or should I stop and ask?
+
+## When it triggers
+
+The skill is active any time the agent asks itself:
+
+- Can I do this without asking?
+- Is this safe to do?
+- Do I need approval?
+- Did they actually say yes?
+- Am I inside the guardrails for this project?
+- Where is the autonomy boundary here?
+- Is this a hot zone?
+- Is this action irreversible?
+
+## Step 0: Load the project policy
+
+Before applying the four-step check to any real work, the agent checks for an `AGENT_POLICY.md` at the project root.
+
+- **If the SessionStart hook is active**, an existing `AGENT_POLICY.md` is already in context — use it directly and do not re-read it.
+- **If it exists and is not yet in context**: read it. It defines this project's hot zones, its source-of-truth files, and any standing approvals. Treat it as the final word on project specifics.
+- **If it does not exist**: use the defaults described below, treat anything uncertain as risky, and offer to scaffold one by running `/keel-skills:policy-init`.
+
+## The four-step check
+
+Run this before anything that writes or changes something. The **first step that applies wins.**
+
+1. **Read-only, looking into something, or writing a clearly-labeled `[PROPOSAL]`?** → **Free.** Do it.
+2. **Touches a hot zone?** → **Needs a green light.**
+3. **Builds or reconfigures a system, or is it a chain of small steps that together rebuild something?** → **Needs a green light** — even if each individual step looks tiny.
+4. **Otherwise** (undoable + internal + isolated + low-impact) → **Free: act and report back.**
+
+**Any doubt at any step → treat it as needing a green light.**
+
+### Tie-breakers
+
+When two steps seem to apply at once, resolve in this order:
+
+1. **Risk wins** — if something is both "free" and "hot", it needs a green light.
+2. **The whole picture wins** — a set of small steps that together rebuild something needs a green light, even delivered piece by piece.
+3. **Doubt means stop** — any uncertainty resolves toward asking.
+
+## What looks like permission — and what actually is
+
+Three things are routinely confused with "yes, go ahead." Only one of them is.
+
+- **A goal.** A direction with no specific scope: *"improve this"*, *"do what's needed"*, *"handle it"*. This is **not** a green light. It is permission to look into the problem and come back with a plan.
+- **A method.** The user says *how* to do it: *"use a migration"*, *"edit the config"*, *"use a subagent"*. Naming the method is not the same as approving the action. Still **not** a green light.
+- **A green light.** Either (a) the user clearly approves a specific action and its scope, or (b) a **written-down, still-current decision** already covers it. **This is the only thing that means go — and the agent must not exceed what was approved.**
+
+<Tip>
+The practical trap: most "go do it" instructions are just a goal or a method. They feel like permission but are not. Only a green light means go.
+</Tip>
+
+### Following through on a green light you already have
+
+A change may carry forward an existing approval — without asking again — only when **all four** conditions hold:
+
+1. **No judgment needed** — two people applying the same decision would make the exact same change.
+2. The decision **says how far it goes** — the agent is not guessing the scope.
+3. The change **points back** to the decision it came from.
+4. The decision is **still current** — nothing newer has overridden it.
+
+Miss any one of these → **ask for a new green light.** Being too confident that "this is obviously just following through" is the classic mistake. When uncertain whether something is following through or a new call, ask.
+
+## Where mistakes happen most
+
+Three places deserve extra care:
+
+- **Chain effects.** Noticing early that a chain of small steps has turned into "rebuilding something." If a task starts to feel like "set up / configure / restructure," it needs a green light from the start — not after several steps are done.
+- **Following through vs. a new call.** The line between executing an approved decision and making a new one is easy to blur. When in doubt, ask.
+- **A file's reach in an unknown project.** A file that looks minor may have wide downstream effects. Treat its reach as risky until you understand how far it goes.
+
+## Subagents and permission
+
+A subagent **cannot** approve, confirm, or act in a hot zone on its own say-so. It can look into things and propose — but the green light always returns to the human, or to the parent agent acting under a human's green light. Handing work to a subagent never creates permission out of thin air.
+
+See [Model Delegation](/components/model-delegation) for the full delegation rules, including depth limits and no-self-escalation.
+
+## Relationship to the enforcement hook
+
+This skill is the **thinking layer**: it makes the agent run the check on every action. Keel Skills also ships a **hard layer** — the `PreToolUse` hook (`enforce-policy.cjs`) — that catches risky tool calls and forces an explicit approval prompt regardless of what the agent decided, blocking them outright when no human is present to approve.
+
+The two work together. The hook only catches the concrete, mechanical cases it can recognize. Do **not** treat hook silence as permission — this four-step check still rules on every action. And the hook is a backstop, not a cage: it cannot stop a truly determined process.
+
+See [Hooks](/components/hooks) for the enforcement details.
+
+<Tip>
+In one line: Read-only and proposals are free. Anything risky, outward, undoable-only-with-pain, or system-rebuilding needs a clear yes. When unsure, ask.
+</Tip>

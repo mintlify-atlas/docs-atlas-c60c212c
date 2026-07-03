@@ -1,0 +1,52 @@
+---
+title: "Building a Keel-Compatible Implementation"
+sidebarTitle: "Implementations"
+description: "The Keel authorization model and AGENT_POLICY.md format are specified runtime-neutral in SPEC.md. Build a Keel-compatible implementation for any agent runtime or CI system."
+---
+
+The Keel authorization model and `AGENT_POLICY.md` format are specified runtime-neutral in `SPEC.md`. Any implementation — an Agent SDK integration, a different harness, a CI gate, a pre-commit hook — can describe itself as **Keel-compatible** if it satisfies the Conformance section (§8 of the spec). The reference implementation is the Keel Skills plugin for Claude Code; other runtimes are actively encouraged.
+
+## Conformance requirements
+
+An implementation is **Keel-compatible** if it satisfies all six of the following requirements from SPEC.md §8:
+
+1. **Reads `AGENT_POLICY.md`** from the project root (or a path the user designates) and treats it as authoritative over the spec defaults.
+2. **Runs the four-step check (§3) before every action (§1)** — every write, edit, commit, push, deploy, send, publish, charge, delete, or reconfigure.
+3. **Treats every §4 default category as hot** unless the policy concretely refines it. A vague refinement does not remove the default.
+4. **Only lets a green light carry over through following-through** when all four §5 conditions hold: no judgment needed, the decision states the scope, the change points back to the source decision, and the decision is still current. Miss one → needs a new green light.
+5. **Never lets a subagent grant a green light (§6)** if the implementation supports delegation. Permission always returns to the human.
+6. **Resolves any doubt toward stopping and asking** — the tie-breaker at every step of the four-step check is to treat the action as needing a green light.
+
+An implementation **MAY** add stricter rules. It **MUST NOT** relax §3–§5 below what is specified.
+
+## Enforcing implementations (optional, stricter)
+
+The conformance requirements above are satisfied by a *reasoning* implementation — one where the agent applies the four-step check itself. An implementation may additionally **enforce** the policy with deterministic code that intercepts actions before they run. SPEC.md §8.1 defines the requirements for an enforcing implementation:
+
+1. **Intercepts actions before they run** and maps them to `allow` / `ask` / `deny`, where `ask` is the request for an explicit human-approval (a green light).
+2. **Treats the §4 defaults as hot** even when no machine-readable block (§7.1) is present in `AGENT_POLICY.md`.
+3. **In a non-interactive context** (no human able to grant a green light), **denies** any action it would otherwise have asked about.
+4. **Is understood to be a backstop, not a cage** — it raises assurance against accident, drift, and hallucination, but cannot contain an adversarial agent. Real isolation (scoped credentials, sandboxing) is complementary, not replaced by enforcement.
+
+The reference enforcing implementation is the Keel Skills `PreToolUse` hook (`enforce-policy.cjs`).
+
+## Spec version targeting
+
+Implementations should declare which spec version they target. The current spec version is **0.2**.
+
+`SPEC.md` uses `MAJOR.MINOR` versioning:
+
+- A **MINOR** bump adds or clarifies requirements without breaking a conforming implementation. The 0.2 bump, for example, renamed the three permission levels (goal / method / green light) without changing how they work.
+- A **MAJOR** bump may change required behavior and will require implementations to review their conformance.
+
+Declaring your target version lets users understand which behaviors your implementation guarantees and makes it straightforward to assess compatibility when the spec evolves.
+
+## How to get listed
+
+If you build a Keel-compatible implementation for another runtime, open an issue on the GitHub repository so it can be listed in the README. Include the runtime or system it targets, the spec version it targets, and whether it is a reasoning implementation, an enforcing implementation, or both.
+
+<Note>
+  `SPEC.md` is a draft (v0.2). If you encounter ambiguity or gaps while building an implementation, open an issue — real implementations are the best stress test of the spec.
+</Note>
+
+For the full specification, including the four-step check, hot-zone defaults, following-through rules, and the `AGENT_POLICY.md` format, see the [Specification](/reference/spec).

@@ -1,0 +1,112 @@
+---
+title: "Hooks: SessionStart and PreToolUse Enforcement"
+sidebarTitle: "Hooks"
+description: "Keel Skills ships two hooks: SessionStart injects AGENT_POLICY.md into context automatically, and PreToolUse blocks hot tool calls before they execute."
+---
+
+Keel Skills ships two hooks registered in `hooks.json`. These are the hard enforcement layer — they fire automatically without the agent having to decide to comply. Where the skills (like [authorization-protocol](/components/authorization-protocol)) handle the reasoning side of governance, the hooks handle the mechanical enforcement side: the `SessionStart` hook ensures the policy is always in context, and the `PreToolUse` hook intercepts every tool call before it executes and emits a verdict.
+
+## hooks.json
+
+The hook registrations live in `hooks.json` at the plugin root:
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/inject-policy.cjs\""
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/enforce-policy.cjs\""
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+The `matcher: "*"` on `PreToolUse` means the enforcement hook fires on every tool call, not just a named subset.
+
+## SessionStart hook (inject-policy.cjs)
+
+When a Claude Code session starts, this hook runs automatically. It looks for an `AGENT_POLICY.md` at the project root (or the path the user designates). If the file is found, the hook injects its contents into context — so the policy is always present and the agent doesn't have to remember to read it. When no policy file exists, the hook stays silent. Nothing breaks; the agent falls back to the defaults described in the [authorization-protocol](/components/authorization-protocol) skill.
+
+## PreToolUse hook (enforce-policy.cjs)
+
+This is the hard counterpart to the reasoning skill. It inspects every tool call **before it runs** and emits one of three verdicts: `allow`, `ask`, or `deny`.
+
+### Decision contract
+
+The hook communicates with Claude Code through stdin and stdout:
+
+- **stdin**: `{ tool_name, tool_input, cwd, ... }`
+- **stdout**: 
+```json
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "allow | ask | deny",
+    "permissionDecisionReason": "<string>"
+  }
+}
+```
+
+### Tool classification
+
+The hook classifies incoming tool calls into one of four categories:
+
+- **Read-only tools** (`Read`, `Grep`, `Glob`, `LS`, `WebFetch`, `WebSearch`, `NotebookRead`, `TodoWrite`) — always allowed without consulting the policy.
+- **File write tools** (`Write`, `Edit`, `MultiEdit`, `NotebookEdit`) — checked against `hot_paths` globs from the policy (plus any `standing_allow_paths` that create scoped exceptions).
+- **Bash commands** — the command string is normalized and checked against `hot_commands` patterns (plus `standing_allow_commands` for scoped exceptions).
+- **MCP tools** (tool names starting with `mcp__`) — checked against a built-in list of outward/irreversible substrings: `deploy`, `execute_sql`, `apply_migration`, `create_post`, `delete`, `send`, `publish`, `merge_branch`, `create_short_link`, `charge`.
+
+The default hot commands include `git push`, `git commit`, `git reset --hard`, `rm -rf`, `drop table`, `drop database`, `truncate`, `vercel deploy`, `vercel --prod`, `supabase db push`, `migrate`, and `npm publish`.
+
+### Verdicts
+
+| Verdict | Meaning |
+|---|---|
+| `allow` | Proceed — the tool call is not in a hot set, or is covered by a standing approval |
+| `ask` | Request explicit human approval before the action runs (green light prompt) |
+| `deny` | Block outright — used in headless/CI mode when no human can provide a green light |
+
+### Headless and CI mode
+
+When `KEEL_NONINTERACTIVE=1` or the `CI` environment variable is set, the hook treats any `ask` verdict as `deny`. There is no human present to give a green light, so any hot action is blocked rather than paused for input.
+
+## Audit trail
+
+Every decision the hook makes is appended to `.keel/audit.jsonl` in the project root. The `.keel/` directory is created automatically if it does not already exist. Each line is a JSON record:
+
+```json
+{ "ts": "2024-01-15T10:23:45.123Z", "tool": "Bash", "input": "git push origin main", "verdict": "ask", "rule": "hot_command:git push" }
+```
+
+| Field | Content |
+|---|---|
+| `ts` | ISO 8601 timestamp |
+| `tool` | Tool name as passed by Claude Code |
+| `input` | The file path, command string, or tool name (truncated to 200 chars) |
+| `verdict` | `allow`, `ask`, or `deny` |
+| `rule` | The rule that matched, e.g. `hot_command:git push`, `hot_path:src/**`, `standing_allow:npm run build`, `no_match` |
+
+## Fail-open design
+
+When the hook receives malformed input or encounters an internal error, it fails open — it emits `allow` and lets the action proceed. This is intentional. The hook is a backstop layer, not a strict gate: it should never wedge a workflow over an error in its own parsing logic. Internal errors are still logged to the audit trail where possible.
+
+<Warning>
+The enforcement hook is not a security sandbox. Command-pattern matching can be evaded by a determined or jailbroken agent (for example, `g=push; git $g`). The hook catches accidents, drift, and hallucinated actions — it raises assurance substantially — but real isolation requires scoped credentials and a proper sandbox environment. These are complementary, not alternatives.
+</Warning>

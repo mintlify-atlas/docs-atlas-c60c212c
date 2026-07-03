@@ -1,0 +1,66 @@
+---
+title: "Following Through on a Green Light You Already Have"
+sidebarTitle: "Following Through"
+description: "Learn the four conditions under which an agent can follow through on an already-approved decision without asking for a new green light each time."
+---
+
+Not every write action needs a fresh green light. When a decision has already been approved and a change comes straight out of it, executing that change is following through — and following through is free. This is the mechanism that lets an agent actually get work done after a decision has been made, rather than asking for permission on every individual file it touches. But it is a narrow exception, not a general license. It only applies when four specific conditions are all met simultaneously.
+
+## The four conditions
+
+<Steps>
+  <Step title="No judgment needed">
+    Two people applying the same decision independently would produce the exact same change. If the result would differ depending on who's doing it — because it requires choosing, interpreting, or filling in a gap — then judgment is required, and it is not just following through.
+  </Step>
+  <Step title="The decision states the scope">
+    The scope of the change is stated in the decision itself. The agent is not guessing how far the approved decision reaches. If the scope has to be inferred or extrapolated, the decision does not cover this change.
+  </Step>
+  <Step title="The change points back to the source decision">
+    The change is traceable to the decision it came from. There is a clear line between the approved decision and the specific edit being made — not just a general sense that it's in the spirit of the decision.
+  </Step>
+  <Step title="The decision is still current">
+    Nothing later has overridden the decision. A newer decision, a reversal, or a changed context that makes the original decision obsolete breaks the chain. The decision must be live at the time the change is made.
+  </Step>
+</Steps>
+
+**Miss one condition → needs a new green light.** All four must hold. There is no partial credit.
+
+<Warning>
+  Being too sure that "this is obviously just following through" is the classic failure mode. When deciding whether something is following through or a new call, default to asking. The cost of asking once is low; the cost of acting without authorization on a hot zone can be high.
+</Warning>
+
+## Standing approvals
+
+A standing approval is a written decision in `AGENT_POLICY.md` §6 that grants a green light in advance for a defined scope. It is the formalization of "you don't need to ask each time for this specific thing."
+
+Standing approvals must state their scope explicitly — a standing approval without an explicit scope is not a valid green light, and the implementation must not guess the scope. Example format:
+
+```markdown
+## 6. Standing approvals
+
+[APPROVED 2026-06-01] agent may run `npm run build` freely on any branch.
+[APPROVED 2026-06-01] agent may edit files under `_drafts/**` without asking.
+```
+
+Each entry records when the approval was granted and exactly what it covers. The date matters: a standing approval can become stale if the project context changes significantly, and reviewers need to be able to tell when it was written.
+
+## How this interacts with the enforcement hook
+
+The machine-readable form of standing approvals lives in the `keel-policy` block in `AGENT_POLICY.md`:
+
+```keel-policy
+standing_allow_commands:
+  - "npm run build"
+standing_allow_paths:
+  - "_drafts/**"
+```
+
+The `PreToolUse` enforcement hook checks `standing_allow_commands` and `standing_allow_paths` **before** checking hot patterns. A command or path that matches a standing allow is let through without triggering the green-light prompt — even if it would otherwise match a hot pattern. This is the correct precedence: an explicit standing approval overrides the hot default.
+
+<Note>
+  A standing approval that does not state its scope explicitly is **not** a valid green light — the implementation must not guess the scope. If the prose in §6 is vague, the machine-readable block cannot rescue it. Both must be explicit.
+</Note>
+
+## The relationship to hot zones
+
+Hot zones ([§4 of the spec](/concepts/hot-zones)) and following-through interact in one important place: source-of-truth files. New decisions or meaning-changing edits to source-of-truth files need a green light. The only exception is following through on a decision that was already approved and still meets all four conditions above. This means following-through is the designed pressure valve for source-of-truth files — not a loophole, but an explicit, traceable path that keeps those files protected while still allowing authorized work to proceed.

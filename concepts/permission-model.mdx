@@ -1,0 +1,67 @@
+---
+title: "The Goal / Method / Green Light Permission Model"
+sidebarTitle: "Permission Model"
+description: "Three things look like permission; only one is. Learn the Goal / Method / Green Light model and the four-step check that runs before every write action."
+---
+
+Three things routinely get confused with permission to act. An agent that conflates them will happily delete files, push commits, or reshape a live system under instructions that were never meant to authorize those specific actions. Keel Skills resolves the confusion by naming the three things precisely — a goal, a method, and a green light — and making the rule explicit: only one of them means go.
+
+## Three permission levels
+
+<CardGroup cols={3}>
+  <Card title="A goal" icon="flag">
+    A direction with no specific scope: *"improve this"*, *"do what's needed"*, *"handle it"*, *"make it better"*. A goal is **not** a green light. The agent may look into it and write a clearly-labeled proposal — nothing more.
+  </Card>
+  <Card title="A method" icon="wrench">
+    The human names *how* to do it: *"use a migration"*, *"edit the config"*, *"use a subagent"*. Naming the method is **not** the same as approving the action. Still **not** a green light.
+  </Card>
+  <Card title="A green light" icon="circle-check">
+    Either (a) the human clearly approves a specific action together with its scope, or (b) a **written-down, still-current decision** already covers that scope. This is the **only** thing that means go — and the agent must not go beyond the approved scope.
+  </Card>
+</CardGroup>
+
+<Note>
+  **The practical trap:** most "go do it" instructions are just a goal or a method. They feel like permission but are not. Only a green light means go.
+</Note>
+
+## The four-step check
+
+A conforming implementation runs this check before any write action. The **first step that applies wins.**
+
+<Steps>
+  <Step title="Read-only, exploratory, or a labeled proposal?">
+    Is it read-only, looking into something, or writing a clearly-labeled proposal? → **Free. Act.** Exploration and proposals never need a green light.
+  </Step>
+  <Step title="Does it touch a hot zone?">
+    Does the action touch a [hot zone](/concepts/hot-zones) — a path, surface, or action where a mistake is expensive or hard to undo? → **Needs a green light.** See [Hot Zones](/concepts/hot-zones) for the full default set and how to configure your own.
+  </Step>
+  <Step title="Does it build or rebuild a system?">
+    Does it build or reconfigure a system, or is it a chain of small steps whose combined effect rebuilds something? → **Needs a green light, even if each individual step is tiny.** The whole picture matters, not just each move in isolation.
+  </Step>
+  <Step title="Otherwise — undoable, internal, and low-impact?">
+    Otherwise (undoable + internal + isolated + low-impact) → **Free: act and report.** The agent acts and tells the human what it did.
+  </Step>
+</Steps>
+
+**Any doubt at any step → treat it as needing a green light.**
+
+## Tie-breakers
+
+When a situation pulls in more than one direction, three tie-breakers apply in this order:
+
+1. **Risk wins.** If something is both "free" and "hot", it needs a green light. Hot always beats free.
+2. **The whole picture wins.** A system-rebuilding effect needs a green light even when delivered in small steps. The cumulative effect is what matters.
+3. **Doubt resolves toward stopping.** Any uncertainty → stop and ask.
+
+## What stays the agent's call
+
+A few judgments are left to the agent by design, though the default in all three is to ask rather than guess:
+
+- **Judging undoable / internal / low-impact** — the anchors are narrow. *Undoable* means reversible via version control with no outside effect. *Internal* means the change never reaches anyone outside the project. *Low-impact* means it doesn't touch access, data, money, or published copy. In all three: if in doubt, ask.
+- **Judging following-through vs. a new call** — when a decision is already approved, a change that comes straight out of it may not need a new green light. But deciding whether this is truly just [following through](/concepts/following-through) or actually a new call is itself a judgment. Default to asking.
+- **When to flag a contradiction or a gap** — the agent surfaces contradictions rather than resolving them silently by picking a side.
+
+## Going deeper
+
+- [Hot Zones](/concepts/hot-zones) — the full list of default hot categories, how to configure per-project hot paths and commands, and the machine-readable block the enforcement hook reads.
+- [Following Through](/concepts/following-through) — the four conditions under which an already-approved decision carries forward without a new green light.

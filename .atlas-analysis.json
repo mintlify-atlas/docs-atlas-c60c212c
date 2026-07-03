@@ -1,0 +1,102 @@
+{
+  "projectType": "framework",
+  "projectName": "Keel Skills",
+  "projectDescription": "A portable governance framework for Claude Code agents that enforces a goal/method/green-light permission model, cost-aware model delegation, and file-grounded context discipline to prevent irreversible autonomous actions.",
+  "theme": "luma",
+  "primaryColor": "#2563EB",
+  "lightColor": "#EFF6FF",
+  "darkColor": "#1E3A8A",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "how-it-works"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/permission-model",
+              "concepts/hot-zones",
+              "concepts/following-through",
+              "concepts/two-layers"
+            ]
+          },
+          {
+            "group": "Skills & Components",
+            "pages": [
+              "components/authorization-protocol",
+              "components/model-delegation",
+              "components/context-discipline",
+              "components/hooks",
+              "components/policy-init-command"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "configuration/agent-policy",
+              "configuration/policy-packs",
+              "configuration/machine-readable-block"
+            ]
+          },
+          {
+            "group": "Examples & Reference",
+            "pages": [
+              "examples/green-light-brake",
+              "examples/enforcement-hook",
+              "reference/spec",
+              "reference/changelog"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Contributing",
+        "groups": [
+          {
+            "group": "Contributing",
+            "pages": [
+              "contributing/overview",
+              "contributing/policy-packs",
+              "contributing/compatible-implementations"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Goal/method/green-light permission model — only a green light lets the agent act",
+    "Four-step check that runs before any write/change action",
+    "Hot zone classification for irreversible or outward-facing actions",
+    "PreToolUse enforcement hook (hard backstop) that blocks hot tool calls before they run",
+    "SessionStart hook that automatically injects AGENT_POLICY.md into context",
+    "Cost-aware model delegation with tiering (Haiku/Sonnet/Opus) and subagent depth limits",
+    "Context discipline to keep agent sessions grounded in files rather than chat history",
+    "/keel-skills:policy-init command to scaffold per-project AGENT_POLICY.md",
+    "Audit trail (.keel/audit.jsonl) logging every enforcement decision",
+    "Ready-made policy packs for Next.js/Vercel, Supabase, and generic web apps",
+    "Runtime-neutral open specification (SPEC.md) enabling Keel-compatible implementations",
+    "CI/headless support — hot actions denied automatically when no human is present"
+  ],
+  "publicApiSurface": [
+    "authorization-protocol skill — four-step check before any write/change action",
+    "model-delegation skill — cheapest model selection and subagent depth enforcement",
+    "context-discipline skill — file-based state, session handoff rules",
+    "/keel-skills:policy-init command — scaffolds AGENT_POLICY.md interactively",
+    "SessionStart hook (inject-policy.cjs) — injects AGENT_POLICY.md at session start",
+    "PreToolUse hook (enforce-policy.cjs) — intercepts hot tool calls before execution",
+    "AGENT_POLICY.md format — hot zones, source-of-truth files, standing approvals, machine-readable keel-policy block",
+    "keel-policy fenced block — hot_paths, hot_commands, standing_allow_commands, standing_allow_paths",
+    ".keel/audit.jsonl — JSONL audit log of every enforcement decision",
+    "KEEL_NONINTERACTIVE / CI env var — triggers headless deny mode",
+    "Spec conformance surface — §3 four-step check, §4 hot defaults, §5 following-through conditions, §6 delegation limits, §7 AGENT_POLICY.md format, §8 conformance criteria"
+  ]
+}

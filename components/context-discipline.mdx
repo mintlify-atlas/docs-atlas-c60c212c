@@ -1,0 +1,54 @@
+---
+title: "context-discipline: File-Grounded Agent Sessions"
+sidebarTitle: "Context Discipline"
+description: "The context-discipline skill anchors sessions in files rather than chat history and defines when to end a long session cleanly with a resumable handoff."
+---
+
+Long sessions don't fail because the model forgets — they fail because the conversation quietly becomes the place where the work "lives," and the conversation is not a trustworthy record. State gets asserted without being verified, decisions exist only in the transcript, and the further the session runs, the more the agent is reasoning from drift rather than fact. This skill keeps the source of truth in files and defines when to close a session cleanly instead of letting it sprawl.
+
+## The conversation is not the source of truth
+
+The files are the authoritative record of the project. The current conversation is not. Two consequences follow directly:
+
+1. **Don't rely on chat history for current state — read it from the files.** Verify before asserting that something is done. If the files don't confirm it, it isn't confirmed.
+2. **When you reach a decision or new state, write it to the appropriate file.** A conclusion that exists only in the transcript will be lost when the session ends. If the project has an `AGENT_POLICY.md`, its section *"Where state and decisions get recorded"* (§3) names exactly where decisions, project state, and per-task notes belong — use those paths instead of guessing.
+
+## Don't hoard context
+
+In a long session, accumulated context stops being free. Past a certain point, it adds no operational value and actively raises the risk of confusion — stale assumptions, contradicting half-decisions, conclusions that can no longer be traced to a source. When the accumulated context stops paying its way or starts raising the risk of confusion:
+
+1. **Stop expanding the session.** Don't keep piling new threads onto it.
+2. **Record the necessary state** in the files where it belongs — decisions log, project notes, the relevant source files.
+3. **Leave a clear pointer** for how to continue in a new session.
+
+<Warning>
+Never drop context that the current task still needs just to make the session smaller. Trimming is for context that has stopped paying its way — not for anything load-bearing for the work in front of you. When in doubt about whether a piece of context is still needed, record it to a file before letting it go.
+</Warning>
+
+## The resumable handoff test
+
+The test for whether you've recorded enough: **a fresh session, with no access to this chat history, should be able to pick the work back up by reading the source files alone.** If it couldn't, you haven't written down enough yet — the state still lives only in the transcript.
+
+## What to leave in a handoff
+
+When closing a session, leave the following **in files**, not just in the chat:
+
+- **What the current state is and how it was verified** — not just a claim that something is done, but a pointer to the file evidence.
+- **What the next concrete step is** — specific enough that a fresh session knows where to start without reconstructing the reasoning.
+- **Which files to read first to reconstruct context** — the minimum reading list to get back up to speed.
+
+## Where decisions are recorded
+
+If the project has an `AGENT_POLICY.md`, §3 (*Where state and decisions get recorded*) specifies exactly where to write things down. The three fields it defines:
+
+| Field | Purpose |
+|---|---|
+| **Decisions log path** | Where written decisions (green lights granted, choices made) accumulate |
+| **Project state / status file path** | The file that reflects the current status of ongoing work |
+| **Per-task notes convention** | How to record notes for a specific task (naming convention, location) |
+
+Write to these locations. Don't invent new paths for each session.
+
+<Tip>
+In one line: Read state from files, write decisions to files, and when a session stops earning its length, record the state + a resume pointer and start fresh.
+</Tip>

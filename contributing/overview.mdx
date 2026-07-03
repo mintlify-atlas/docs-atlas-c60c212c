@@ -1,0 +1,45 @@
+---
+title: "Contributing to Keel Skills"
+sidebarTitle: "Overview"
+description: "Keel Skills is MIT-licensed and wants to become a shared standard for agent governance. The most valuable contributions are policy packs, compatible implementations, and spec improvements."
+---
+
+Keel Skills is MIT-licensed and actively seeks contributions. The two highest-value contributions are **policy packs** — ready-made `AGENT_POLICY.md` templates for new stacks — and **implementations for other runtimes**, bringing the Keel governance model to agent SDKs, CI gates, and other harnesses. Both are easy to start and immediately useful to the community.
+
+## How to contribute
+
+<CardGroup cols={2}>
+  <Card title="Add a policy pack" href="/contributing/policy-packs">
+    Ready-made `AGENT_POLICY.md` for a new stack. Easy to start, very useful.
+  </Card>
+  <Card title="Build a Keel-compatible implementation" href="/contributing/compatible-implementations">
+    Implement the spec for another runtime (Agent SDK, CI gate, etc.).
+  </Card>
+  <Card title="Improve the spec">
+    `SPEC.md` is a draft. Proposals to clarify or extend are welcome via GitHub issues and PRs.
+  </Card>
+  <Card title="Improve the skills">
+    Improve the three skills (`authorization-protocol`, `model-delegation`, `context-discipline`) while keeping them generic and disjoint. Open a GitHub PR.
+  </Card>
+</CardGroup>
+
+## Ground rules
+
+These rules apply to all contributions:
+
+- **No telemetry or network calls** are added without an explicit, documented, opt-in design.
+- **Attribution:** keep the MIT notice; a visible credit to *Keel Skills by Esteban Aguilar* is the norm (see the `NOTICE` file).
+- **Discussion and questions:** open a GitHub issue.
+
+## When improving skills
+
+The three skills are the reference implementation of the Keel governance model. When editing them, follow these four rules:
+
+1. **Keep them generic** — no project-, client-, or company-specific data ever goes in a skill. That belongs in the consumer's `AGENT_POLICY.md`.
+2. **Keep each skill's concept disjoint from the others** — don't blur authorization, delegation, and context discipline together.
+3. **Update `CHANGELOG.md` and bump the version** in `plugin.json` and `.claude-plugin/marketplace.json` together.
+4. **Never blur authorization, delegation, and context discipline together** — each skill owns one concept and one concept only.
+
+## License
+
+Keel Skills is released under the MIT License. Attribution is preserved via the MIT notice and a `NOTICE` file. Commercial use is permitted. Forking, reimplementing, and building on Keel Skills are explicitly encouraged — the project's goal is to become a shared standard for agent governance, and that only happens if the ecosystem is open.

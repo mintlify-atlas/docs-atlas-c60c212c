@@ -1,47 +1,87 @@
 ---
-title: "Quickstart"
-description: "Begin with a guide on the fastest path to a successful outcome"
+title: "Get Started with Keel Skills in 5 Minutes"
+sidebarTitle: "Quickstart"
+description: "Install the Keel Skills plugin in Claude Code, generate your project's AGENT_POLICY.md with policy-init, and have enforcement active in under five minutes."
 ---
 
-Describe how someone begins using your product. What is the first thing they need to do? Are there any prerequisites?
-
-A quickstart should take someone from zero to using your product. They'll get a quick win and a sense of what they can accomplish.
-
-## Prerequisites
-
-Before you begin, you must have:
-
-- Requirement one (for example, Node.js 18+, a free account, an API key)
-- Requirement two (for example, a compatible device, a compatible browser, a compatible operating system)
-
-## Get started
+This guide takes you from a fresh Claude Code session to a fully configured Keel Skills installation. By the end, your agent will have a written rule for when it may act alone and when it must stop and ask — enforced by both a reasoning layer (the skills) and a deterministic hook (the `PreToolUse` enforcer) that fires before any hot tool call runs.
 
 <Steps>
-  <Step title="Install">
-    Describe how to install your product or sign up.
+  <Step title="Add the marketplace">
+    Keel Skills ships as a single-plugin marketplace hosted on GitHub. Add it to Claude Code with one command:
 
-    ```bash
-    npm install your-package
+    ```text
+    /plugin marketplace add https://github.com/quitohooded/keel-skills
     ```
+
+    This registers the Keel Skills marketplace in your Claude Code instance. No credentials are required — the repository is public and MIT-licensed.
   </Step>
-  <Step title="Configure">
-    Describe any setup or configuration needed before first use.
 
-    ```bash
-    your-cli init
+  <Step title="Install the plugin">
+    With the marketplace registered, install the plugin:
+
+    ```text
+    /plugin install keel-skills@keel-skills
     ```
+
+    The format is `<marketplace-name>@<plugin-name>`. Here, both are `keel-skills` because the repo exposes a single-plugin marketplace. This installs the three skills, the `policy-init` command, and the two hooks (`SessionStart` and `PreToolUse`) into your Claude Code environment.
   </Step>
-  <Step title="Run it">
-    Show the first thing a user does to see it working.
+
+  <Step title="Generate your project policy">
+    Navigate to your project root and run the policy initialization command:
+
+    ```text
+    /keel-skills:policy-init
+    ```
+
+    The command interviews you about your project and writes an `AGENT_POLICY.md` at your project root. It covers six sections:
+
+    | Section | Required | What it captures |
+    |---|---|---|
+    | **Hot zones** | Yes | Concrete paths, surfaces, and actions that need a green light before the agent touches them |
+    | **Source-of-truth files** | Yes | Files other work depends on — changes need a green light except when following through on an approved decision |
+    | **Where decisions are recorded** | Yes | The decisions log, project-state file, and per-task notes location |
+    | **Model tier overrides** | Optional | Project-specific overrides of the delegation defaults |
+    | **Definitions** | Optional | Pin down what "undoable", "internal", or "release" means in your project |
+    | **Standing approvals** | Optional | Written decisions that grant a green light in advance for a defined scope |
+
+    Run `/keel-skills:policy-init` once per project. The skills are generic — all your specifics live in this file.
+  </Step>
+
+  <Step title="Verify it's working">
+    Enforcement is active immediately after installation. Open a new Claude Code session in your project and the `SessionStart` hook fires automatically, injecting your `AGENT_POLICY.md` into context — the policy no longer depends on the agent choosing to read it.
+
+    From that point on, the `PreToolUse` hook intercepts every tool call before it runs. When it detects a hot command or a write to a hot path, it returns an explicit approval prompt (or, in CI, an outright deny). You can review every decision the hook made in the audit trail:
 
     ```bash
-    your-cli start
+    cat .keel/audit.jsonl
     ```
+
+    Each line is a JSON record containing the timestamp, the tool that was called, the rule that matched, and the verdict (`allow`, `ask`, or `deny`).
   </Step>
 </Steps>
 
-<Tip>
-  Give people a way to get help. This could be a link to a support page, a chat with a customer support agent, or a forum for your product.
+## What happens next
 
-  Example: Need help? Reach out to us at [support@yourcompany.com](mailto:support@yourcompany.com).
+After installation, when the agent encounters a vague "do it" instruction, it runs the four-step check before acting:
+
+1. **Is it read-only, or a clearly-labeled proposal?** → Free. Act.
+2. **Does it touch a hot zone?** → Needs a green light.
+3. **Does it build or reconfigure a system, or is it a chain whose combined effect rebuilds something?** → Needs a green light, even if each individual step is small.
+4. **Otherwise** (undoable, internal, isolated, low-impact) → Free: act and report.
+
+Any doubt at any step resolves toward stopping and asking. The hard layer backstops this: even if the model skips the check, the `PreToolUse` hook intercepts the tool call before it runs.
+
+## Alternative: use a policy pack
+
+If you're working on a common stack, ready-made `AGENT_POLICY.md` packs give you a complete policy without going through the interview. Packs are available for:
+
+- **Next.js / Vercel** — hot zones covering the Vercel deployment surface, `next.config.*`, and public routes
+- **Supabase** — hot zones covering migrations, RLS policies, edge functions, and the Supabase dashboard
+- **Web app deploy** — a general-purpose deploy policy covering production branches, CI/CD config, and outward API calls
+
+See the [Policy Packs](/configuration/policy-packs) page for installation instructions and the full pack contents.
+
+<Tip>
+  Run `/keel-skills:policy-init` in each project — the framework ships generic and the per-project `AGENT_POLICY.md` is where all your specifics live. The same plugin installation works across all your projects.
 </Tip>
